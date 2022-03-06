@@ -1,7 +1,8 @@
 package com.citizenweb.training.mongotest.service;
 
 import com.citizenweb.training.mongotest.model.User;
-import com.citizenweb.training.mongotest.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -9,24 +10,25 @@ import reactor.core.publisher.Mono;
 @Service
 public class UserServiceImpl implements UserService {
 
-    private final UserRepository userRepository;
+    private final ReactiveMongoOperations mongoTemplate;
 
-    public UserServiceImpl(UserRepository userRepository) {
-        this.userRepository = userRepository;
+    @Autowired
+    public UserServiceImpl(ReactiveMongoOperations mongoTemplate) {
+        this.mongoTemplate = mongoTemplate;
     }
 
     @Override
     public Mono<User> getUser(String userId) {
-        return userRepository.findById(Mono.just(userId));
+        return mongoTemplate.findById(userId, User.class);
     }
 
     @Override
     public Flux<User> getAllUsers() {
-        return userRepository.findAll();
+        return mongoTemplate.findAll(User.class);
     }
 
     @Override
     public Mono<User> saveUser(User user) {
-        return userRepository.save(user);
+        return mongoTemplate.save(user);
     }
 }

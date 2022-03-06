@@ -26,7 +26,6 @@ public class User {
     private LocalDate birthDate;
     @ReadOnlyProperty
     @DocumentReference(lookup="{'borrow':?#{#self._id} }")
-    @Builder.Default
     @ToString.Exclude
     private List<Borrow> borrows = new ArrayList<>();
 }
