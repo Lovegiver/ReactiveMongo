@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
+import java.util.Collections;
 
 @Service
 public class BorrowServiceImpl implements BorrowService {
@@ -25,7 +26,7 @@ public class BorrowServiceImpl implements BorrowService {
 
     @Override
     public Mono<Borrow> borrowBook(User user, Book book) {
-        Book bookToBorrow = null;
+        /*Book bookToBorrow = null;
         User borrowingUser = null;
         if (book.getId() == null) {
             Query query = new Query();
@@ -47,14 +48,23 @@ public class BorrowServiceImpl implements BorrowService {
         } else {
             borrowingUser = user;
             if (borrowingUser.getBorrows() == null) borrowingUser.setBorrows(new ArrayList<>());
-        }
+        }*/
         Borrow borrow = Borrow.builder()
-                .book(bookToBorrow)
-                .user(borrowingUser)
+                .book(book)
+                .user(user)
                 .build();
-        borrowingUser.getBorrows().add(borrow);
-        bookToBorrow.setBorrow(borrow);
-        return mongoTemplate.save(borrow);
+        /*borrowingUser.getBorrows().add(borrow);
+        bookToBorrow.setBorrow(borrow);*/
+        Mono<Borrow> savedBorrow = mongoTemplate.save(borrow);
+        book.setBorrow(savedBorrow.block());
+        if (user.getBorrows() == null) {
+            user.setBorrows(Collections.singletonList(savedBorrow.block()));
+        } else {
+            user.getBorrows().add(savedBorrow.block());
+        }
+        mongoTemplate.save(user);
+        mongoTemplate.save(book);
+        return savedBorrow;
     }
 
     @Override
