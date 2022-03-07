@@ -42,12 +42,12 @@
             <scope>test</scope>
         </dependency>
         <!-- https://mvnrepository.com/artifact/de.flapdoodle.embed/de.flapdoodle.embed.mongo -->
-        <dependency>
+        <!--<dependency>
             <groupId>de.flapdoodle.embed</groupId>
             <artifactId>de.flapdoodle.embed.mongo</artifactId>
-            <!--<version>3.4.3</version>-->
-            <!--<scope>test</scope>-->
-        </dependency>
+            &lt;!&ndash;<version>3.4.3</version>&ndash;&gt;
+            &lt;!&ndash;<scope>test</scope>&ndash;&gt;
+        </dependency>-->
     </dependencies>
 
     <build>

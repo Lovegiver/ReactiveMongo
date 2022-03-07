@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.mongodb.core.MongoOperations;
+import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import reactor.core.publisher.Flux;
 
 import java.time.LocalDate;
@@ -29,6 +31,8 @@ class MongoTestApplicationTests {
     private BorrowRepository borrowRepository;
     @Autowired
     private BorrowService borrowService;
+    @Autowired
+    private ReactiveMongoOperations mongoTemplate;
 
     @Test
     void contextLoads() {
@@ -64,15 +68,18 @@ class MongoTestApplicationTests {
         User user = User.builder().firstName("Fred").lastName("Courcier").build();
         User savedUser = userRepository.save(user).block();
         Assertions.assertNotNull(savedUser);
-        log.info(savedUser.toString());
         Book book = Book.builder().isbn("isbn1").author("Jules Verne").title("Blabla").build();
         Book savedBook = bookRepository.save(book).block();
         Assertions.assertNotNull(savedBook);
-        log.info(savedBook.toString());
 
         Borrow savedBorrow = borrowService.borrowBook(savedUser,savedBook).block();
         Assertions.assertNotNull(savedBorrow);
         log.info(savedBorrow.toString());
+
+        User userFromDB = mongoTemplate.findById(savedUser.getId(), User.class).block();
+        log.info(String.format("User -> %s & Borrow [ %s ]", userFromDB, userFromDB.getBorrows().get(0).getId()));
+        Book bookFromDB = mongoTemplate.findById(savedBook.getId(), Book.class).block();
+        log.info(String.format("Book -> %s & Borrow [ %s ]", bookFromDB, bookFromDB.getBorrow().getId()));
 
     }
 

@@ -20,12 +20,11 @@ import java.util.List;
 public class User {
 
     @Id
-    private String userId;
+    private String id;
     private String firstName;
     private String lastName;
     private LocalDate birthDate;
-    @ReadOnlyProperty
-    @DocumentReference(lookup="{'borrow':?#{#self._id} }")
+    @DocumentReference(lookup="{'user':?#{#self._id} }")
     @ToString.Exclude
     private List<Borrow> borrows = new ArrayList<>();
 }

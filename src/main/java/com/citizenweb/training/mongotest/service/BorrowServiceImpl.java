@@ -4,16 +4,20 @@ import com.citizenweb.training.mongotest.model.Book;
 import com.citizenweb.training.mongotest.model.Borrow;
 import com.citizenweb.training.mongotest.model.User;
 import com.mongodb.client.result.DeleteResult;
+import lombok.extern.java.Log;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
-import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.util.ArrayList;
-import java.util.Collections;
+import java.time.Duration;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
+import static org.springframework.data.mongodb.core.query.Criteria.where;
+
+@Log
 @Service
 public class BorrowServiceImpl implements BorrowService {
 
@@ -26,45 +30,32 @@ public class BorrowServiceImpl implements BorrowService {
 
     @Override
     public Mono<Borrow> borrowBook(User user, Book book) {
-        /*Book bookToBorrow = null;
-        User borrowingUser = null;
-        if (book.getId() == null) {
-            Query query = new Query();
-            query = query.addCriteria(Criteria.where("isbn").is(book.getIsbn()));
-            bookToBorrow = mongoTemplate.findOne(query, Book.class).equals(Mono.empty())
-                    ? mongoTemplate.save(Mono.just(book)).block()
-                    : mongoTemplate.findOne(query, Book.class).block();
-        } else {
-            bookToBorrow = book;
-        }
-        if (user.getUserId() == null) {
-            Query query = new Query();
-            query = query.addCriteria(Criteria.where("firstName").is(user.getFirstName()));
-            query = query.addCriteria(Criteria.where("lastName").is(user.getLastName()));
-            borrowingUser = mongoTemplate.findOne(query, User.class).equals(Mono.empty())
-                    ? mongoTemplate.save(Mono.just(user)).block()
-                    : mongoTemplate.findOne(query, User.class).block();
-            borrowingUser.setBorrows(new ArrayList<>());
-        } else {
-            borrowingUser = user;
-            if (borrowingUser.getBorrows() == null) borrowingUser.setBorrows(new ArrayList<>());
-        }*/
+
         Borrow borrow = Borrow.builder()
                 .book(book)
                 .user(user)
                 .build();
-        /*borrowingUser.getBorrows().add(borrow);
-        bookToBorrow.setBorrow(borrow);*/
-        Mono<Borrow> savedBorrow = mongoTemplate.save(borrow);
-        book.setBorrow(savedBorrow.block());
-        if (user.getBorrows() == null) {
-            user.setBorrows(Collections.singletonList(savedBorrow.block()));
-        } else {
-            user.getBorrows().add(savedBorrow.block());
+
+        Mono<Borrow> savedBorrowMono = mongoTemplate.save(borrow);
+        while (savedBorrowMono.block(Duration.ofMillis(1000)) == null) {
+            log.info("Waiting for reactive app...");
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
-        mongoTemplate.save(user);
-        mongoTemplate.save(book);
-        return savedBorrow;
+        savedBorrowMono.subscribe(savedBorrow -> {
+            mongoTemplate.update(User.class)
+                    .matching(where("id").is(user.getId()))
+                    .apply(new Update().push("borrows").value(Objects.requireNonNull(savedBorrow)))
+                    .first();
+            mongoTemplate.update(Book.class)
+                    .matching(where("id").is(book.getId()))
+                    .apply(new Update().push("borrow").value(Objects.requireNonNull(savedBorrow)))
+                    .first();
+        });
+        return savedBorrowMono;
     }
 
     @Override
