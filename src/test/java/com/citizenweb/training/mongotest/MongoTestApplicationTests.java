@@ -8,6 +8,7 @@ import com.citizenweb.training.mongotest.repository.BorrowRepository;
 import com.citizenweb.training.mongotest.repository.UserRepository;
 import com.citizenweb.training.mongotest.service.BorrowService;
 import lombok.extern.java.Log;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -61,11 +62,16 @@ class MongoTestApplicationTests {
     void borrowBook() {
 
         User user = User.builder().firstName("Fred").lastName("Courcier").build();
-        userRepository.save(user);
+        User savedUser = userRepository.save(user).block();
+        Assertions.assertNotNull(savedUser);
+        log.info(savedUser.toString());
         Book book = Book.builder().isbn("isbn1").author("Jules Verne").title("Blabla").build();
-        bookRepository.save(book);
+        Book savedBook = bookRepository.save(book).block();
+        Assertions.assertNotNull(savedBook);
+        log.info(savedBook.toString());
 
-        Borrow savedBorrow = borrowService.borrowBook(user,book).block();
+        Borrow savedBorrow = borrowService.borrowBook(savedUser,savedBook).block();
+        Assertions.assertNotNull(savedBorrow);
         log.info(savedBorrow.toString());
 
     }

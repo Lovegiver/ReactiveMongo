@@ -18,7 +18,7 @@ public class Book {
     private String title;
     private String author;
     private String isbn;
-    @DocumentReference(lazy = true)
+    @DocumentReference(lookup="{'borrow':?#{#self._id} }")
     @ToString.Exclude
     private Borrow borrow;
 }
