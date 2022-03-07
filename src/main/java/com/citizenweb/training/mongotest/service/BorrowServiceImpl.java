@@ -9,11 +9,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.springframework.data.mongodb.core.query.Criteria.where;
 
@@ -22,6 +22,7 @@ import static org.springframework.data.mongodb.core.query.Criteria.where;
 public class BorrowServiceImpl implements BorrowService {
 
     private final ReactiveMongoOperations mongoTemplate;
+    private final String MONGO_COLLECTION = "borrowings";
 
     @Autowired
     public BorrowServiceImpl(ReactiveMongoOperations mongoTemplate) {
@@ -30,36 +31,52 @@ public class BorrowServiceImpl implements BorrowService {
 
     @Override
     public Mono<Borrow> borrowBook(User user, Book book) {
-
         Borrow borrow = Borrow.builder()
                 .book(book)
                 .user(user)
                 .build();
-
         Mono<Borrow> savedBorrowMono = mongoTemplate.save(borrow);
-        while (savedBorrowMono.block(Duration.ofMillis(1000)) == null) {
-            log.info("Waiting for reactive app...");
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
         savedBorrowMono.subscribe(savedBorrow -> {
             mongoTemplate.update(User.class)
                     .matching(where("id").is(user.getId()))
-                    .apply(new Update().push("borrows").value(Objects.requireNonNull(savedBorrow)))
+                    .apply(new Update().push("borrows", savedBorrow))
                     .first();
             mongoTemplate.update(Book.class)
                     .matching(where("id").is(book.getId()))
-                    .apply(new Update().push("borrow").value(Objects.requireNonNull(savedBorrow)))
+                    .apply(new Update().push("borrow", savedBorrow))
                     .first();
         });
         return savedBorrowMono;
     }
 
     @Override
+    public Mono<Borrow> borrowBook(Mono<User> userMono, Mono<Book> bookMono) {
+        User argUser = userMono.block();
+        Book argBook = bookMono.block();
+        Borrow borrow = Borrow.builder()
+                .book(argBook)
+                .user(argUser)
+                .build();
+        Mono<Borrow> savedBorrowMono = mongoTemplate.save(borrow);
+        Borrow savedBorrow = savedBorrowMono.block();
+        mongoTemplate.update(User.class)
+                .matching(where("_id").is(argUser.getId()))
+                .apply(new Update().push("borrows",savedBorrow))
+                .first();
+        mongoTemplate.update(Book.class)
+                .matching(where("_id").is(argBook.getId()))
+                .apply(new Update().push("borrow",savedBorrow))
+                .first();
+        return savedBorrowMono;
+    }
+
+    @Override
     public Mono<DeleteResult> returnBook(Borrow borrow) {
-        return mongoTemplate.remove(borrow);
+        return mongoTemplate.remove(borrow, MONGO_COLLECTION);
+    }
+
+    @Override
+    public Mono<DeleteResult> returnBook(Mono<Borrow> borrow) {
+        return mongoTemplate.remove(borrow, MONGO_COLLECTION);
     }
 }

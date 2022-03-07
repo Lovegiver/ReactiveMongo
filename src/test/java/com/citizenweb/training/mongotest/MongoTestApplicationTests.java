@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -38,7 +39,7 @@ class MongoTestApplicationTests {
     void contextLoads() {
     }
 
-    @Test
+    //@Test
     void createMassiveUser() throws InterruptedException {
 
         long startTime = System.currentTimeMillis();
@@ -64,22 +65,27 @@ class MongoTestApplicationTests {
 
     @Test
     void borrowBook() {
+        final String MONGO_COLLECTION = "borrowings";
+        User user = User.builder()
+                .firstName("Fred")
+                .lastName("Courcier")
+                .birthDate(LocalDate.of(1971,7,8))
+                .build();
+        //Mono<User> u = mongoTemplate.save(user,MONGO_COLLECTION);
+        Mono<User> u = userRepository.save(user);
+        Assertions.assertNotNull(u);
+        Book book = Book.builder()
+                .isbn("isbn1")
+                .author("Jules Verne")
+                .title("Blabla")
+                .build();
+        //Mono<Book> b = mongoTemplate.save(book, MONGO_COLLECTION);
+        Mono<Book> b = bookRepository.save(book);
+        Assertions.assertNotNull(b);
 
-        User user = User.builder().firstName("Fred").lastName("Courcier").build();
-        User savedUser = userRepository.save(user).block();
-        Assertions.assertNotNull(savedUser);
-        Book book = Book.builder().isbn("isbn1").author("Jules Verne").title("Blabla").build();
-        Book savedBook = bookRepository.save(book).block();
-        Assertions.assertNotNull(savedBook);
-
-        Borrow savedBorrow = borrowService.borrowBook(savedUser,savedBook).block();
-        Assertions.assertNotNull(savedBorrow);
-        log.info(savedBorrow.toString());
-
-        User userFromDB = mongoTemplate.findById(savedUser.getId(), User.class).block();
-        log.info(String.format("User -> %s & Borrow [ %s ]", userFromDB, userFromDB.getBorrows().get(0).getId()));
-        Book bookFromDB = mongoTemplate.findById(savedBook.getId(), Book.class).block();
-        log.info(String.format("Book -> %s & Borrow [ %s ]", bookFromDB, bookFromDB.getBorrow().getId()));
+        Mono<Borrow> brw = mongoTemplate.save(borrowService.borrowBook(u,b), MONGO_COLLECTION);
+        Assertions.assertNotNull(brw);
+        brw.subscribe(borrow -> log.info(String.format("Saved borrowing -> [ %s ]", borrow)));
 
     }
 

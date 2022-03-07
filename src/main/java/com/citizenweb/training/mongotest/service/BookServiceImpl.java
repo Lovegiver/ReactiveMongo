@@ -1,7 +1,6 @@
 package com.citizenweb.training.mongotest.service;
 
 import com.citizenweb.training.mongotest.model.Book;
-import com.citizenweb.training.mongotest.repository.BookRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import org.springframework.stereotype.Service;
