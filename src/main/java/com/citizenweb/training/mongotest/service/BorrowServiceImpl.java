@@ -18,7 +18,7 @@ import static org.springframework.data.mongodb.core.query.Criteria.where;
 public class BorrowServiceImpl implements BorrowService {
 
     private final ReactiveMongoOperations mongoTemplate;
-    private final String MONGO_COLLECTION = "borrowings";
+    private final String MONGO_COLLECTION = "borrow";
 
     @Autowired
     public BorrowServiceImpl(ReactiveMongoOperations mongoTemplate) {

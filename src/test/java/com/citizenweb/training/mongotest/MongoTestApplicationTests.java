@@ -13,16 +13,19 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Example;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.util.Assert;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -115,19 +118,45 @@ class MongoTestApplicationTests {
                         .build());
         Assertions.assertNotNull(bookMono);
         log.info("Saved book : " + bookMono.block());
-        List<String> borrowsId = new ArrayList<>();
+        List<Book> borrowedBooks = new ArrayList<>();
         mongoTemplate.findAll(Borrow.class)
                 .toIterable()
                 .forEach(i -> {
-                    borrowsId.add(i.getId().toString());
+                    borrowedBooks.add(i.getBook());
                 });
-        Query query = new Query(Criteria.where("_id").nin(borrowsId));
-        Flux.from(mongoTemplate.find(query, Book.class))
+        log.info(String.format("List of borrowed books contains %s elements", borrowedBooks.size()));
+        Query query = new Query(Criteria.where("_id").not().in(borrowedBooks));
+        Flux.from(mongoTemplate.find(query, Book.class)).retry()
                 .log()
                 .subscribe(book -> {
                     log.info("Book still on shelves : " + book);
                 });
 
     }
+
+    @Test
+    void getNotBorrowedBooks() {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("author").is("René Girard"));
+        List<Book> borrowedBooks = new ArrayList<>();
+        mongoTemplate.find(query, Book.class)
+                .toIterable()
+                .forEach(borrowedBooks::add);
+        Assert.notEmpty(borrowedBooks, "No books in DB)");
+        log.info(String.format("Found [ %s ]", borrowedBooks.get(0).getTitle()));
+
+        Flux<Book> notBorrowedBooks = bookRepository
+                .getAllByIdNotIn(Collections.singletonList(borrowedBooks.get(0).getId()));
+        notBorrowedBooks
+                .log()
+                .subscribe(book -> {
+                    log.info(String.format("Not borrowed : [ %s ]", book.getId()));
+                });
+    }
+
+    /*List<ObjectId> restaurantList = mongoTemplate.findDistinct(new Query(Criteria
+            .where("address.location")
+            .withinSphere(new Circle(latitude, longitude, radius / 6371))),"cocktailList",Restaurant.class,ObjectId.class);
+    return cocktailRepository.findBy_idIn(new HashSet<>(restaurantList));*/
 
 }
