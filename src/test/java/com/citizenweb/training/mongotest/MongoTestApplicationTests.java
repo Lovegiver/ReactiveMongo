@@ -6,6 +6,7 @@ import com.citizenweb.training.mongotest.model.User;
 import com.citizenweb.training.mongotest.repository.BookRepository;
 import com.citizenweb.training.mongotest.repository.BorrowRepository;
 import com.citizenweb.training.mongotest.repository.UserRepository;
+import com.citizenweb.training.mongotest.service.BookService;
 import com.citizenweb.training.mongotest.service.BorrowService;
 import lombok.extern.java.Log;
 import org.junit.jupiter.api.Assertions;
@@ -14,11 +15,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Log
 @SpringBootTest
@@ -34,6 +40,8 @@ class MongoTestApplicationTests {
     private BorrowService borrowService;
     @Autowired
     private ReactiveMongoOperations mongoTemplate;
+    @Autowired
+    private BookService bookService;
 
     @Test
     void contextLoads() {
@@ -96,6 +104,30 @@ class MongoTestApplicationTests {
         borrowRepository.getBorrowsByUserOrderByUserIdAsc(userMono)
                 .log()
                 .subscribe(brw -> log.info("BORROW : " + brw.getId()));
+    }
+
+    @Test
+    void queryCrossRepositories() {
+        Mono<Book> bookMono = bookService.saveBook(Book.builder()
+                        .title("La violence et le Sacré")
+                        .author("René Girard")
+                        .isbn("isbn1971")
+                        .build());
+        Assertions.assertNotNull(bookMono);
+        log.info("Saved book : " + bookMono.block());
+        List<String> borrowsId = new ArrayList<>();
+        mongoTemplate.findAll(Borrow.class)
+                .toIterable()
+                .forEach(i -> {
+                    borrowsId.add(i.getId().toString());
+                });
+        Query query = new Query(Criteria.where("_id").nin(borrowsId));
+        Flux.from(mongoTemplate.find(query, Book.class))
+                .log()
+                .subscribe(book -> {
+                    log.info("Book still on shelves : " + book);
+                });
+
     }
 
 }
