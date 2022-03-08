@@ -9,11 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
-import org.springframework.util.Assert;
 import reactor.core.publisher.Mono;
-
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.springframework.data.mongodb.core.query.Criteria.where;
 

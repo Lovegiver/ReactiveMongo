@@ -89,4 +89,13 @@ class MongoTestApplicationTests {
 
     }
 
+    @Test
+    void borrowsByUser() {
+        Mono<User> userMono = mongoTemplate.findById("62268cce6a68c3473c3cd87b",User.class);
+        log.info(String.format("Found User [ %s ]", userMono.block()));
+        borrowRepository.getBorrowsByUserOrderByUserIdAsc(userMono)
+                .log()
+                .subscribe(brw -> log.info("BORROW : " + brw.getId()));
+    }
+
 }
