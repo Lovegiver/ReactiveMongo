@@ -10,6 +10,7 @@ import com.citizenweb.training.mongotest.service.BookService;
 import com.citizenweb.training.mongotest.service.BorrowService;
 import lombok.extern.java.Log;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -46,6 +47,33 @@ class MongoTestApplicationTests {
     @Autowired
     private BookService bookService;
 
+    private final Book BOOK_1 = Book.builder()
+            .isbn("isbn1")
+            .author("Jules Verne")
+            .title("Vingt-mille lieues sous les mers")
+            .build();
+    private final Book BOOK_2 = Book.builder()
+            .isbn("isbn2")
+            .author("René Girard")
+            .title("La violence et le Sacré")
+            .build();
+    private final Book BOOK_3 = Book.builder()
+            .isbn("isbn3")
+            .author("David Graeber")
+            .title("Bullshit jobs")
+            .build();
+    private final User USER_1 = User.builder().firstName("Tom").lastName("Reilly")
+            .birthDate(LocalDate.of(1987,8,2)).build();
+    private final User USER_2 = User.builder().firstName("Jessica").lastName("Lange")
+            .birthDate(LocalDate.of(1992,4,22)).build();
+    private final User USER_3 = User.builder().firstName("Mary").lastName("Predator")
+            .birthDate(LocalDate.of(1947,1,14)).build();
+
+    @BeforeEach
+    void prepareTest() {
+        cleanDB();
+    }
+
     @Test
     void contextLoads() {
     }
@@ -76,25 +104,12 @@ class MongoTestApplicationTests {
 
     @Test
     void borrowBook() {
-        final String MONGO_COLLECTION = "borrowings";
-        User user = User.builder()
-                .firstName("Fred")
-                .lastName("Courcier")
-                .birthDate(LocalDate.of(1971,7,8))
-                .build();
-        //Mono<User> u = mongoTemplate.save(user,MONGO_COLLECTION);
-        Mono<User> u = userRepository.save(user);
+        Mono<User> u = userRepository.save(USER_1);
         Assertions.assertNotNull(u);
-        Book book = Book.builder()
-                .isbn("isbn1")
-                .author("Jules Verne")
-                .title("Blabla")
-                .build();
-        //Mono<Book> b = mongoTemplate.save(book, MONGO_COLLECTION);
-        Mono<Book> b = bookRepository.save(book);
+        Mono<Book> b = bookRepository.save(BOOK_1);
         Assertions.assertNotNull(b);
 
-        Mono<Borrow> brw = mongoTemplate.save(borrowService.borrowBook(u,b), MONGO_COLLECTION);
+        Mono<Borrow> brw = mongoTemplate.save(borrowService.borrowBook(u,b));
         Assertions.assertNotNull(brw);
         brw.subscribe(borrow -> log.info(String.format("Saved borrowing -> [ %s ]", borrow)));
 
@@ -158,5 +173,15 @@ class MongoTestApplicationTests {
             .where("address.location")
             .withinSphere(new Circle(latitude, longitude, radius / 6371))),"cocktailList",Restaurant.class,ObjectId.class);
     return cocktailRepository.findBy_idIn(new HashSet<>(restaurantList));*/
+
+    private void cleanDB() {
+        bookRepository.deleteAll();
+        userRepository.deleteAll();
+        bookRepository.deleteAll();
+    }
+
+    private <T> Flux<T> createObjectsInDB(List<T> objectsToInsert, Class<T> clazz) {
+        return mongoTemplate.insert(objectsToInsert,clazz);
+    }
 
 }
