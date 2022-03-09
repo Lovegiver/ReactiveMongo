@@ -12,5 +12,5 @@ import java.util.List;
 @Repository
 public interface BookRepository extends ReactiveMongoRepository<Book,String> {
 
-    Flux<Book> getAllByIdNotIn(Collection<ObjectId> id);
+    Flux<Book> getAllByIdNotIn(Collection<String> id);
 }

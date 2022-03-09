@@ -21,7 +21,7 @@ public class User {
 
     @Getter @Setter
     @Id
-    private ObjectId id;
+    private String id;
     @Getter @Setter
     private String firstName;
     @Getter @Setter

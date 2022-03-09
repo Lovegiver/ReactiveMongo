@@ -16,7 +16,7 @@ public class Borrow {
 
     @Id
     @Getter @Setter
-    private ObjectId id;
+    private String id;
     @Getter @Setter
     @DocumentReference
     private Book book;
