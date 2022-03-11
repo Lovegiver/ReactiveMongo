@@ -8,6 +8,7 @@ import com.citizenweb.training.mongotest.repository.BorrowRepository;
 import com.citizenweb.training.mongotest.repository.UserRepository;
 import com.citizenweb.training.mongotest.service.BookService;
 import com.citizenweb.training.mongotest.service.BorrowService;
+import com.citizenweb.training.mongotest.service.UserService;
 import lombok.extern.java.Log;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +18,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Example;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.ReactiveMongoOperations;
+import static org.springframework.data.mongodb.core.query.Criteria.*;
+
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.util.Assert;
@@ -28,6 +31,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Log
@@ -46,6 +50,8 @@ class MongoTestApplicationTests {
     private ReactiveMongoOperations mongoTemplate;
     @Autowired
     private BookService bookService;
+    @Autowired
+    private UserService userService;
 
     private final Book BOOK_1 = Book.builder()
             .isbn("isbn1")
@@ -105,9 +111,9 @@ class MongoTestApplicationTests {
     @Test
     void borrowBook() {
         Mono<User> u = userRepository.save(USER_1);
-        Assertions.assertNotNull(u);
+        Assertions.assertEquals(USER_1.getFirstName(), Objects.requireNonNull(u.block()).getFirstName());
         Mono<Book> b = bookRepository.save(BOOK_1);
-        Assertions.assertNotNull(b);
+        Assertions.assertEquals(BOOK_1.getIsbn(), Objects.requireNonNull(b.block()).getIsbn());
 
         Mono<Borrow> brw = mongoTemplate.save(borrowService.borrowBook(u,b));
         Assertions.assertNotNull(brw);
@@ -115,7 +121,7 @@ class MongoTestApplicationTests {
 
     }
 
-    @Test
+    //@Test
     void borrowsByUser() {
         Mono<User> userMono = mongoTemplate.findById("62268cce6a68c3473c3cd87b",User.class);
         log.info(String.format("Found User [ %s ]", userMono.block()));
@@ -126,25 +132,34 @@ class MongoTestApplicationTests {
 
     @Test
     void queryCrossRepositories() {
-        Mono<Book> bookMono = bookService.saveBook(Book.builder()
-                        .title("La violence et le Sacré")
-                        .author("René Girard")
-                        .isbn("isbn1971")
-                        .build());
-        Assertions.assertNotNull(bookMono);
-        log.info("Saved book : " + bookMono.block());
+        cleanDB();
+        Mono<Book> book1Mono = mongoTemplate.save(BOOK_1);
+        Assertions.assertNotNull(book1Mono.block());
+        Mono<Book> book2Mono = mongoTemplate.save(BOOK_2);
+        Assertions.assertNotNull(book2Mono.block());
+        Mono<User> user1Mono = mongoTemplate.save(USER_1);
+        Assertions.assertNotNull(user1Mono.block());
+        Mono<Borrow> borrow1Mono = borrowService.borrowBook(user1Mono,book1Mono);
+        Assertions.assertNotNull(borrow1Mono.block());
+
         List<Book> borrowedBooks = new ArrayList<>();
-        mongoTemplate.findAll(Borrow.class)
-                .toIterable()
-                .forEach(i -> {
-                    borrowedBooks.add(i.getBook());
-                });
-        log.info(String.format("List of borrowed books contains %s elements", borrowedBooks.size()));
-        Query query = new Query(Criteria.where("_id").not().in(borrowedBooks));
+        borrowRepository.findAll().subscribe(borrow -> {
+            log.info("Existing borrowing : " + borrow);
+            Book book = borrow.getBook();
+            borrowedBooks.add(book);
+        });
+        Assertions.assertEquals(1,borrowedBooks.size());
+        log.info("Borrowed book = " + borrowedBooks.get(0));
+        List<String> borrowedBooksIds = borrowedBooks
+                .stream()
+                .map(Book::getId)
+                .toList();
+        Query query = new Query(where("_id").not().in(borrowedBooks));
         Flux.from(mongoTemplate.find(query, Book.class)).retry()
                 .log()
                 .subscribe(book -> {
                     log.info("Book still on shelves : " + book);
+                    Assertions.assertEquals(Objects.requireNonNull(book1Mono.block()).getIsbn(),book.getIsbn());
                 });
 
     }
@@ -176,9 +191,9 @@ class MongoTestApplicationTests {
 
     private void cleanDB() {
         log.info("Cleaning Database");
-        bookRepository.deleteAll();
-        userRepository.deleteAll();
-        bookRepository.deleteAll();
+        mongoTemplate.dropCollection(Book.class).block();
+        mongoTemplate.dropCollection(User.class).block();
+        mongoTemplate.dropCollection(Borrow.class).block();
     }
 
     private <T> Flux<T> createObjectsInDB(List<T> objectsToInsert, Class<T> clazz) {
