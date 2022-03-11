@@ -111,7 +111,7 @@ class MongoTestApplicationTests {
 
         Mono<Borrow> brw = mongoTemplate.save(borrowService.borrowBook(u,b));
         Assertions.assertNotNull(brw);
-        brw.subscribe(borrow -> log.info(String.format("Saved borrowing -> [ %s ]", borrow)));
+        log.info(String.format("Saved borrowing -> [ %s ]", brw.block()));
 
     }
 
@@ -175,6 +175,7 @@ class MongoTestApplicationTests {
     return cocktailRepository.findBy_idIn(new HashSet<>(restaurantList));*/
 
     private void cleanDB() {
+        log.info("Cleaning Database");
         bookRepository.deleteAll();
         userRepository.deleteAll();
         bookRepository.deleteAll();
